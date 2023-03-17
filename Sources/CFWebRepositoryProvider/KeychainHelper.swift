@@ -7,7 +7,7 @@
 /// [Persisting Sensitive Data Using Keychain in Swift](https://swiftsenpai.com/development/persist-data-using-keychain/)
 import Foundation
 public final class KeychainHelper {
-    static let standard = KeychainHelper()
+    public static let standard = KeychainHelper()
     private init() {}
     
     private func save(_ data: Data, service: String, account: String) {
