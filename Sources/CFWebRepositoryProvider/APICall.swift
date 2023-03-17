@@ -8,12 +8,12 @@
 import Foundation
 import OSLog
 
-enum APIMethod: String {
+public enum APIMethod: String {
     case get = "GET"
     case post = "POST"
 }
 
-protocol APICall {
+public protocol APICall {
     var path: String { get }
     var method: APIMethod { get }
     var headers: [String: String]? { get }
@@ -84,7 +84,7 @@ extension APICall {
         }
     }
     
-    func makeBody<T: Encodable>(payload: T) throws -> Data {
+    public func makeBody<T: Encodable>(payload: T) throws -> Data {
         let dic = payload.dictionary
         if JSONSerialization.isValidJSONObject(dic) {
             return try JSONSerialization.data(withJSONObject: dic,

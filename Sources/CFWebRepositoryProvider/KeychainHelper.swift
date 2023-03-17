@@ -6,7 +6,7 @@
 //
 /// [Persisting Sensitive Data Using Keychain in Swift](https://swiftsenpai.com/development/persist-data-using-keychain/)
 import Foundation
-final class KeychainHelper {
+public final class KeychainHelper {
     static let standard = KeychainHelper()
     private init() {}
     

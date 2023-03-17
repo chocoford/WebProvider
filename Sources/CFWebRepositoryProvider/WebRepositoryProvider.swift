@@ -17,8 +17,7 @@ protocol WebRepositoryProvider {
 }
 
 extension WebRepositoryProvider {
-    func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) -> AnyPublisher<Value, Error>
-    where Value: Decodable {
+    public func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) -> AnyPublisher<Value, Error> where Value: Decodable {
         do {
             let request = try endpoint.urlRequest(baseURL: baseURL)
             logger.info("\(request.prettyDescription)")
@@ -38,8 +37,7 @@ extension WebRepositoryProvider {
         }
     }
     
-    func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) async throws -> Value
-    where Value: Decodable {
+    public func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) async throws -> Value where Value: Decodable {
         let request = try endpoint.urlRequest(baseURL: baseURL)
         logger.info("\(request.prettyDescription)")
         let (data, response) = try await session.data(for: request)
