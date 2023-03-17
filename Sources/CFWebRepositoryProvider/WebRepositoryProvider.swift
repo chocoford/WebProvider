@@ -9,7 +9,7 @@ import Foundation
 import Combine
 import OSLog
 
-protocol WebRepositoryProvider {
+public protocol WebRepositoryProvider {
     var logger: Logger { get }
     var session: URLSession { get }
     var baseURL: String { get }
