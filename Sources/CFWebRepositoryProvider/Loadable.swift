@@ -91,7 +91,7 @@ extension Loadable {
         }
     }
     
-    func map<V>(_ transform: (T) throws -> V) -> Loadable<V> {
+    public func map<V>(_ transform: (T) throws -> V) -> Loadable<V> {
         do {
             switch self {
                 case .notRequested: return .notRequested
