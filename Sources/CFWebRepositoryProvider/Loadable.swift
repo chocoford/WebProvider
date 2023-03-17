@@ -34,28 +34,28 @@ public enum Loadable<T> {
     case loaded(data: T)
     case failed(LoadableError)
 
-    var value: T? {
+    public var value: T? {
         switch self {
         case let .loaded(value): return value
         case let .isLoading(last): return last
         default: return nil
         }
     }
-    var error: LoadableError? {
+    public var error: LoadableError? {
         switch self {
         case let .failed(error): return error
             default: return nil
         }
     }
     
-    enum State {
+    public enum State {
         case notRequested
         case isLoading
         case loaded
         case failed
     }
     
-    var state: State {
+    public var state: State {
         switch self {
             case .notRequested:
                 return .notRequested
