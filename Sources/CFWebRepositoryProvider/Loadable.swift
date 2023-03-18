@@ -4,7 +4,7 @@
 //
 //  Created by Dove Zachary on 2023/3/17.
 //
-
+/*
 import Foundation
 import SwiftUI
 
@@ -144,3 +144,4 @@ extension Loadable: Equatable where T: Equatable {
         }
     }
 }
+*/
