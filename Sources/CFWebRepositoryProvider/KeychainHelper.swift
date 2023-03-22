@@ -7,12 +7,10 @@
 /// [Persisting Sensitive Data Using Keychain in Swift](https://swiftsenpai.com/development/persist-data-using-keychain/)
 import Foundation
 
-@MainActor
 public final class KeychainHelper {
     public static let standard = KeychainHelper()
     private init() {}
     
-    @MainActor
     private func save(_ data: Data, service: String, account: String) {
         // Create query
         let query = [
@@ -77,7 +75,6 @@ public final class KeychainHelper {
         
     }
     
-    @MainActor
     public func save<T>(_ item: T, service: String, account: String) where T : Codable {
         
         do {
