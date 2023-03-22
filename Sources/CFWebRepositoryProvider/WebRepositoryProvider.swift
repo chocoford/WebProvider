@@ -9,7 +9,13 @@ import Foundation
 import Combine
 import OSLog
 
+public enum LogOption {
+    case response
+    case data
+}
+
 public protocol WebRepositoryProvider {
+    var logLevel: [LogOption] { get set }
     var logger: Logger { get }
     var session: URLSession { get }
     var baseURL: String { get }
@@ -17,14 +23,14 @@ public protocol WebRepositoryProvider {
 }
 
 extension WebRepositoryProvider {
+
     public func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) -> AnyPublisher<Value, Error> where Value: Decodable {
         do {
             let request = try endpoint.urlRequest(baseURL: baseURL)
             logger.info("\(request.prettyDescription)")
             return session
                 .dataTaskPublisher(for: request)
-//                .printResult()
-                .requestJSON(httpCodes: httpCodes)
+                .requestJSON(httpCodes: httpCodes, logger: logger, logLevel: logLevel)
                 .mapError {
                     dump($0)
                     logger.error("\($0.localizedDescription)")
@@ -55,48 +61,54 @@ extension WebRepositoryProvider {
 // MARK: - Helpers
 
 extension Publisher where Output == URLSession.DataTaskPublisher.Output {
-    func requestData(httpCodes: HTTPCodes = .success) -> AnyPublisher<Data, Error> {
+    func requestData(httpCodes: HTTPCodes = .success,
+                     logger: Logger? = nil,
+                     logLevel: [LogOption] = [.data, .response]) -> AnyPublisher<Data, Error> {
         return tryMap {
-                assert(!Thread.isMainThread)
-                guard let code = ($0.1 as? HTTPURLResponse)?.statusCode else {
-                    throw APIError.unexpectedResponse
-                }
-                guard httpCodes.contains(code) else {
-                    var reason = ""
-                    if let jsonObject = try? JSONSerialization.jsonObject(with: $0.data, options: []),
-                       let data = try? JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys]) {
-                        reason = String(data: data, encoding: .utf8) ?? ""
-                    }
-                    throw APIError.httpCode(code,
-                                            reason: reason,
-                                            headers: ($0.response as? HTTPURLResponse)?.allHeaderFields)
-                }
-                return $0.0
+            assert(!Thread.isMainThread)
+            guard let code = ($0.1 as? HTTPURLResponse)?.statusCode else {
+                throw APIError.unexpectedResponse
             }
+            
+            let dataString = String(data: $0.data, encoding: .utf8) ?? ""
+            
+            guard httpCodes.contains(code) else {
+                let error = APIError.httpCode(code,
+                                              reason: dataString,
+                                              headers: ($0.response as? HTTPURLResponse)?.allHeaderFields)
+                logger?.error("\(error.errorDescription ?? "")")
+                throw error
+            }
+            logger?.debug("\(dataString)")
+
+            return $0.0
+        }
 //            .extractUnderlyingError()
             .eraseToAnyPublisher()
     }
 }
 
 private extension Publisher where Output == URLSession.DataTaskPublisher.Output {
-    func requestJSON<Value>(httpCodes: HTTPCodes) -> AnyPublisher<Value, Error> where Value: Decodable {
+    func requestJSON<Value>(httpCodes: HTTPCodes,
+                            logger: Logger? = nil,
+                            logLevel: [LogOption] = [.data, .response]) -> AnyPublisher<Value, Error> where Value: Decodable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970
         
-        return requestData(httpCodes: httpCodes)
+        return requestData(httpCodes: httpCodes, logger: logger, logLevel: logLevel)
             .decode(type: Value.self, decoder: decoder)
             .receive(on: DispatchQueue.main)
             .eraseToAnyPublisher()
     }
     
-    func printResult() -> AnyPublisher<Self.Output, Self.Failure> {
+    func printResult(disabled: Bool = false) -> AnyPublisher<Self.Output, Self.Failure> {
         return self
             .map({ (data, res) in
+                if disabled { return (data, res) }
                 let json = try? JSONSerialization.jsonObject(with: data, options: [])
                 if let objJson = json as? [String: Any] {
                     dump(objJson.debugDescription, name: "result")
-                } else if
-                    let arrJson = json as? [[String: Any]] {
+                } else if let arrJson = json as? [[String: Any]] {
                     dump(arrJson, name: "result")
                 }
                 return (data, res)
@@ -104,3 +116,4 @@ private extension Publisher where Output == URLSession.DataTaskPublisher.Output 
             .eraseToAnyPublisher()
     }
 }
+
