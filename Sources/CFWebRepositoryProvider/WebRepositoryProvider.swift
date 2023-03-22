@@ -10,6 +10,7 @@ import Combine
 import OSLog
 
 public enum LogOption {
+    case request
     case response
     case data
 }
@@ -45,9 +46,17 @@ extension WebRepositoryProvider {
     
     public func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) async throws -> Value where Value: Decodable {
         let request = try endpoint.urlRequest(baseURL: baseURL)
-        logger.info("\(request.prettyDescription)")
+        if logLevel.contains(.request) { logger.info("\(request.prettyDescription)") }
         let (data, response) = try await session.data(for: request)
-        logger.info("\(response)")
+        if logLevel.contains(.response) { logger.info("\(response)") }
+        if logLevel.contains(.data) {
+            if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: []),
+               let data = try? JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys]) {
+                logger.info("\(String(data: data, encoding: .utf8) ?? "")")
+            } else {
+                logger.info("\(String(data: data, encoding: .utf8) ?? "")")
+            }
+        }
         do {
             let decoded = try JSONDecoder().decode(Value.self, from: data)
             return decoded
