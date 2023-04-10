@@ -13,15 +13,15 @@ public final class KeychainHelper {
     
     private func save(_ data: Data, service: String, account: String) {
         // Create query
-        let query = [
+        let query: [CFString : Any] = [
             kSecValueData: data,
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
             kSecAttrAccount: account,
-        ] as CFDictionary
-        
+        ]
+
         // Add data in query to keychain
-        let status = SecItemAdd(query, nil)
+        let status = SecItemAdd(query as CFDictionary, nil)
         
         if status != errSecSuccess {
             // Print out the error
@@ -32,45 +32,45 @@ public final class KeychainHelper {
         /// if duplicate, will update it.
         if status == errSecDuplicateItem {
             // Item already exist, thus update it.
-            let query = [
+            let query: [CFString : Any] = [
                 kSecAttrService: service,
                 kSecAttrAccount: account,
                 kSecClass: kSecClassGenericPassword,
-            ] as CFDictionary
+            ]
 
             let attributesToUpdate = [kSecValueData: data] as CFDictionary
 
             // Update existing item
-            SecItemUpdate(query, attributesToUpdate)
+            SecItemUpdate(query as CFDictionary, attributesToUpdate)
         }
     }
     
     private func read(service: String, account: String) -> Data? {
         
-        let query = [
+        let query: [CFString : Any] = [
             kSecAttrService: service,
             kSecAttrAccount: account,
             kSecClass: kSecClassGenericPassword,
             kSecReturnData: true
-        ] as CFDictionary
+        ]
         
         var result: AnyObject?
-        SecItemCopyMatching(query, &result)
+        SecItemCopyMatching(query as CFDictionary, &result)
         
         return (result as? Data)
     }
     
     public func delete(service: String, account: String) {
         
-        let query = [
+        let query: [CFString : Any] = [
             kSecAttrService: service,
             kSecAttrAccount: account,
             kSecClass: kSecClassGenericPassword,
-            ] as CFDictionary
+            ]
         
         // Delete item from keychain
         DispatchQueue.global().async {
-            SecItemDelete(query)
+            SecItemDelete(query as CFDictionary)
         }
         
     }

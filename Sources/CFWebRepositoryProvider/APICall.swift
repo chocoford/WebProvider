@@ -11,6 +11,7 @@ import OSLog
 public enum APIMethod: String {
     case get = "GET"
     case post = "POST"
+    case delete = "DELETE"
 }
 
 public protocol APICall {
