@@ -2,7 +2,7 @@
 //  WebRepositoryProvider.swift
 //  
 //
-//  Created by Dove Zachary on 2023/3/17.
+//  Created by Chocoford on 2023/3/17.
 //
 
 import Foundation
@@ -64,10 +64,9 @@ extension WebRepositoryProvider {
                 let error = APIError.httpCode(code,
                                               reason: dataString,
                                               headers: (response as? HTTPURLResponse)?.allHeaderFields)
-                logger.error("\(error)")
                 throw error
             }
-            
+                        
             if logLevel.contains(.data) {
                 if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: []),
                    let data = try? JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys]) {
@@ -76,8 +75,17 @@ extension WebRepositoryProvider {
                     logger.info("\(String(data: data, encoding: .utf8) ?? "")")
                 }
             }
-            let decoded = try responseDataDecoder.decode(Value.self, from: data)
-            return decoded
+            do {
+                let decoded = try responseDataDecoder.decode(Value.self, from: data)
+                return decoded
+            } catch {
+                if Value.self == String.self {
+                    logger.warning("warning: \(error)")
+                    return (String(data: data, encoding: .utf8) ?? "") as! Value
+                } else {
+                    throw error
+                }
+            }
         } catch {
             if logLevel.contains(.error) {
                 logger.error("\(error)")
@@ -86,6 +94,13 @@ extension WebRepositoryProvider {
         }
     }
 }
+
+//class SessionDelegate: NSObject, URLSessionTaskDelegate {
+//    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+//        print("didComplete", task, error)
+//    }
+//}
+
 
 // MARK: - Helpers
 

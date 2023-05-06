@@ -12,6 +12,7 @@ public enum APIMethod: String {
     case get = "GET"
     case post = "POST"
     case delete = "DELETE"
+    case patch = "PATCH"
 }
 
 public protocol APICall {
@@ -94,6 +95,23 @@ extension APICall {
             throw APIError.parameterInvalid
         }
     }
+    
+    public func makeFormData<T: Encodable>(payload: T, boundary: String) throws -> Data {
+        var data = Data()
+        
+        for (key, value) in payload.dictionary {
+            data.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
+            data.append("Content-Disposition: form-data; name=\"\(key)\"\"\r\n".data(using: .utf8)!)
+            if let stringValue = value as? String,
+                let d = stringValue.data(using: .utf8) {
+                data.append(d)
+            }
+        }
+        // Add the image data to the raw http request data
+        
+        data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        return data
+    }
 }
 
 
@@ -111,8 +129,14 @@ extension URLRequest {
 
             if let body = request.httpBody {
                 do {
-                    let payload = try JSONSerialization.jsonObject(with: body, options: [])
-                    self.body = String(describing: payload)
+                    if JSONSerialization.isValidJSONObject(body) {
+                        let payload = try JSONSerialization.jsonObject(with: body, options: [])
+                        self.body = String(describing: payload)
+                    } else if let string = String(data: body, encoding: .utf8) {
+                        self.body = string
+                    } else {
+                        self.body = "serialize error"
+                    }
                 } catch {
                     self.body = "serialize error"
                 }
