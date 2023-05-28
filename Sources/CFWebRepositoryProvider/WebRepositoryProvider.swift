@@ -6,7 +6,10 @@
 //
 
 import Foundation
+#if !os(Linux)
 import Combine
+#endif
+
 import Logging
 
 public enum LogOption {
@@ -27,29 +30,6 @@ public protocol WebRepositoryProvider {
 
 extension WebRepositoryProvider {
     var logLevel: [LogOption] { [.error] }
-
-    public func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) -> AnyPublisher<Value, Error> where Value: Decodable {
-        do {
-            let request = try endpoint.urlRequest(baseURL: baseURL)
-            logger.info("\(request.prettyDescription)")
-            return session
-                .dataTaskPublisher(for: request)
-                .requestJSON(httpCodes: httpCodes, decoder: responseDataDecoder, logger: logger, logLevel: logLevel)
-                .mapError { error in
-                    if logLevel.contains(.error) {
-                        logger.error("\(error)")
-                    }
-                    return error
-                }
-                .eraseToAnyPublisher()
-        } catch {
-            if logLevel.contains(.error) {
-                logger.error("\(error)")
-            }
-            return Fail<Value, Error>(error: error).eraseToAnyPublisher()
-        }
-    }
-    
     public func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) async throws -> Value where Value: Decodable {
         do {
             let request = try endpoint.urlRequest(baseURL: baseURL)
@@ -101,8 +81,31 @@ extension WebRepositoryProvider {
 //    }
 //}
 
-
-// MARK: - Helpers
+#if !os(Linux)
+// MARK: - Combine support
+extension WebRepositoryProvider {
+    public func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) -> AnyPublisher<Value, Error> where Value: Decodable {
+        do {
+            let request = try endpoint.urlRequest(baseURL: baseURL)
+            logger.info("\(request.prettyDescription)")
+            return session
+                .dataTaskPublisher(for: request)
+                .requestJSON(httpCodes: httpCodes, decoder: responseDataDecoder, logger: logger, logLevel: logLevel)
+                .mapError { error in
+                    if logLevel.contains(.error) {
+                        logger.error("\(error)")
+                    }
+                    return error
+                }
+                .eraseToAnyPublisher()
+        } catch {
+            if logLevel.contains(.error) {
+                logger.error("\(error)")
+            }
+            return Fail<Value, Error>(error: error).eraseToAnyPublisher()
+        }
+    }
+}
 
 extension Publisher where Output == URLSession.DataTaskPublisher.Output {
     func requestData(httpCodes: HTTPCodes = .success,
@@ -160,3 +163,4 @@ private extension Publisher where Output == URLSession.DataTaskPublisher.Output 
     }
 }
 
+#endif
