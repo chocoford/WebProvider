@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import OSLog
+import Logging
 
 public enum APIMethod: String {
     case get = "GET"

@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import OSLog
 
 //protocol UserInfoRepresentable: Codable {
 //    var token: String { get set }

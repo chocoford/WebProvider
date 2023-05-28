@@ -7,7 +7,7 @@
 
 import Foundation
 import Combine
-import OSLog
+import Logging
 
 public enum LogOption {
     case request
