@@ -11,6 +11,9 @@ import Combine
 #endif
 
 import Logging
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public enum LogOption {
     case request

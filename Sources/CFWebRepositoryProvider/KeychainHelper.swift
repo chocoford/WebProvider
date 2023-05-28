@@ -5,8 +5,8 @@
 //  Created by Chocoford on 2022/6/9.
 //
 /// [Persisting Sensitive Data Using Keychain in Swift](https://swiftsenpai.com/development/persist-data-using-keychain/)
+#if !os(Linux)
 import Foundation
-
 public final class KeychainHelper {
     public static let standard = KeychainHelper()
     private init() {}
@@ -104,3 +104,4 @@ public final class KeychainHelper {
         }
     }
 }
+#endif

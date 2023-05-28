@@ -7,6 +7,9 @@
 
 import Foundation
 import Logging
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public enum APIMethod: String {
     case get = "GET"
