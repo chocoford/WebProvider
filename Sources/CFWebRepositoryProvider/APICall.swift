@@ -49,9 +49,18 @@ extension APIError: LocalizedError {
 }
 
 extension APICall {
+    var encoder: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .custom({ date, encoder in
+            var container = encoder.singleValueContainer()
+            try container.encode(Int(date.timeIntervalSince1970))
+        })
+        return encoder
+    }
+    
     func urlRequest(baseURL: String) throws -> URLRequest {
         guard var urlBuilder = URLComponents(string: baseURL + path) else { throw APIError.invalidURL }
-        configureQueryItems(urlBuilder: &urlBuilder)
+        try self.configureQueryItems(urlBuilder: &urlBuilder)
         
         guard let url = urlBuilder.url else {
             throw APIError.invalidURL
@@ -63,26 +72,32 @@ extension APICall {
         return request
     }
     
-    func configureQueryItems(urlBuilder: inout URLComponents) {
+    func configureQueryItems(urlBuilder: inout URLComponents) throws {
         if urlBuilder.queryItems == nil {
             urlBuilder.queryItems = []
         }
-        if let p = gloabalQueryItems {
+        if let p = self.gloabalQueryItems {
+            let dic = try p.dictionary(with: self.encoder)
             if urlBuilder.queryItems != nil {
                 _ = urlBuilder.queryItems!.drop { item in
-                    p.dictionary[item.name] != nil
+                    dic[item.name] != nil
                 }
             }
-            urlBuilder.queryItems! += p.dictionary.map{URLQueryItem(name: $0.key, value: String(describing: $0.value))}
+            urlBuilder.queryItems! += dic.map{
+                URLQueryItem(name: $0.key, value: String(describing: $0.value))
+            }
         }
-        if let p = queryItems {
+        if let p = self.queryItems {
+            let dic = try p.dictionary(with: self.encoder)
             if urlBuilder.queryItems != nil {
                 _ = urlBuilder.queryItems!.drop { item in
-                    p.dictionary[item.name] != nil
+                    dic[item.name] != nil
                 }
             }
-
-            urlBuilder.queryItems! += p.dictionary.map{URLQueryItem(name: $0.key, value: String(describing: $0.value))}
+            
+            urlBuilder.queryItems! += dic.map{
+                URLQueryItem(name: $0.key, value: String(describing: $0.value))
+            }
         }
         if urlBuilder.queryItems!.count == 0 {
             urlBuilder.queryItems = nil
@@ -90,19 +105,13 @@ extension APICall {
     }
     
     public func makeBody<T: Encodable>(payload: T) throws -> Data {
-        let dic = payload.dictionary
-        if JSONSerialization.isValidJSONObject(dic) {
-            return try JSONSerialization.data(withJSONObject: dic,
-                                              options: [.prettyPrinted, .fragmentsAllowed])
-        } else {
-            throw APIError.parameterInvalid
-        }
+        return try self.encoder.encode(payload)
     }
     
     public func makeFormData<T: Encodable>(payload: T, boundary: String) throws -> Data {
         var data = Data()
         
-        for (key, value) in payload.dictionary {
+        for (key, value) in try payload.dictionary(with: self.encoder) {
             data.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
             data.append("Content-Disposition: form-data; name=\"\(key)\"\"\r\n".data(using: .utf8)!)
             if let stringValue = value as? String,

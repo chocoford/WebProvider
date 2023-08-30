@@ -7,9 +7,13 @@
 /// [Persisting Sensitive Data Using Keychain in Swift](https://swiftsenpai.com/development/persist-data-using-keychain/)
 #if !os(Linux)
 import Foundation
+import OSLog
+
 public final class KeychainHelper {
     public static let standard = KeychainHelper()
     private init() {}
+    
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "KeychainHelper")
     
     private func save(_ data: Data, service: String, account: String) {
         // Create query
@@ -70,7 +74,9 @@ public final class KeychainHelper {
         
         // Delete item from keychain
         DispatchQueue.global().async {
-            SecItemDelete(query as CFDictionary)
+            let status = SecItemDelete(query as CFDictionary)
+//            self.logger.info("Delete security item, sevice: \(service), account: \(account), status: \(status.description)")
+            print("Delete security item, sevice: \(service), account: \(account), status: \(status.description)")
         }
         
     }
