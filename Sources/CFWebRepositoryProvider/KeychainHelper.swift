@@ -27,12 +27,6 @@ public final class KeychainHelper {
         // Add data in query to keychain
         let status = SecItemAdd(query as CFDictionary, nil)
         
-        if status != errSecSuccess {
-            // Print out the error
-            print("Error: \(status)")
-        }
-        
-        
         /// if duplicate, will update it.
         if status == errSecDuplicateItem {
             // Item already exist, thus update it.
@@ -47,10 +41,14 @@ public final class KeychainHelper {
             // Update existing item
             SecItemUpdate(query as CFDictionary, attributesToUpdate)
         }
+        
+        if status != errSecSuccess {
+            // Print out the error
+            logger.error("Error: \(status, privacy: .public)")
+        }
     }
     
     private func read(service: String, account: String) -> Data? {
-        
         let query: [CFString : Any] = [
             kSecAttrService: service,
             kSecAttrAccount: account,
@@ -60,7 +58,6 @@ public final class KeychainHelper {
         
         var result: AnyObject?
         SecItemCopyMatching(query as CFDictionary, &result)
-        
         return (result as? Data)
     }
     
@@ -75,28 +72,25 @@ public final class KeychainHelper {
         // Delete item from keychain
         DispatchQueue.global().async {
             let status = SecItemDelete(query as CFDictionary)
-//            self.logger.info("Delete security item, sevice: \(service), account: \(account), status: \(status.description)")
-            print("Delete security item, sevice: \(service), account: \(account), status: \(status.description)")
+            self.logger.info("Delete security item, sevice: \(service, privacy: .public), account: \(account, privacy: .public), status: \(status.description, privacy: .public)")
         }
         
     }
     
     public func save<T>(_ item: T, service: String, account: String) where T : Codable {
-        
         do {
             // Encode as JSON data and save in keychain
             let data = try JSONEncoder().encode(item)
             save(data, service: service, account: account)
-            
         } catch {
             assertionFailure("Fail to encode item for keychain: \(error)")
         }
     }
     
     public func read<T>(service: String, account: String) -> T? where T : Codable {
-        
         // Read item data from keychain
         guard let data = read(service: service, account: account) else {
+            logger.warning("Read data from service(\(service, privacy: .public)) failed")
             return nil
         }
         

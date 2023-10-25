@@ -29,6 +29,14 @@ public protocol WebRepositoryProvider {
     var baseURL: String { get }
     var bgQueue: DispatchQueue { get }
     var responseDataDecoder: JSONDecoder { get set }
+    
+    var hooks: WebRepositoryHook { get }
+}
+
+public struct WebRepositoryHook {
+    var unauthorizeHandler: () -> Void = { }
+//    var beforeEach: () -> Void
+//    var afterEach: () -> Void
 }
 
 extension WebRepositoryProvider {
@@ -44,6 +52,11 @@ extension WebRepositoryProvider {
             }
             let dataString = data.prettyJSONStringified()
             guard httpCodes.contains(code) else {
+                
+                if code == 401 {
+                    self.hooks.unauthorizeHandler()
+                }
+                
                 let error = APIError.httpCode(code,
                                               reason: dataString,
                                               headers: (response as? HTTPURLResponse)?.allHeaderFields)
