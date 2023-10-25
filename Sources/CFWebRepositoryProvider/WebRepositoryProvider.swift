@@ -34,9 +34,12 @@ public protocol WebRepositoryProvider {
 }
 
 public struct WebRepositoryHook {
-    var unauthorizeHandler: () -> Void = { }
+    public var unauthorizeHandler: () -> Void = { }
 //    var beforeEach: () -> Void
 //    var afterEach: () -> Void
+    public init(unauthorizeHandler: @escaping () -> Void = { }) {
+        self.unauthorizeHandler = unauthorizeHandler
+    }
 }
 
 extension WebRepositoryProvider {
