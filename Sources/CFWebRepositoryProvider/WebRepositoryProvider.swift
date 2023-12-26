@@ -10,7 +10,13 @@ import Foundation
 import Combine
 #endif
 
+#if canImport(OSLog)
+import OSLog
+#else
 import Logging
+#endif
+
+
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
