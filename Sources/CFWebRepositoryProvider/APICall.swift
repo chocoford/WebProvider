@@ -22,13 +22,13 @@ public protocol APICall {
     var path: String { get }
     var method: APIMethod { get }
     var headers: [String: String]? { get }
-    var gloabalQueryItems: Codable? { get }
-    var queryItems: Codable? { get }
+    var gloabalQueryItems: Encodable? { get }
+    var queryItems: Encodable? { get }
     func body() throws -> Data?
 }
 
 
-enum APIError: Error {
+enum APIError {
     case invalidURL
     case httpCode(HTTPCode, reason: String, headers: [AnyHashable: Any]?)
     case unexpectedResponse
@@ -40,10 +40,20 @@ extension APIError: LocalizedError {
     var errorDescription: String? {
         switch self {
             case .invalidURL: return "Invalid URL"
-            case let .httpCode(code, reason, headers): return "Unexpected HTTP code: \(code), reason: \(reason), response headers: \(headers ?? [:])"
+            case let .httpCode(code, reason, headers):
+                return "HTTP code error: \(code)"
             case .unexpectedResponse: return "Unexpected response from the server"
             case .imageDeserialization: return "Cannot deserialize image from Data"
             case .parameterInvalid: return "Parameter invalid"
+        }
+    }
+    
+    var failureReason: String? {
+        switch self {
+            case let .httpCode(code, reason, headers): 
+                return reason
+            default:
+                return nil
         }
     }
 }
