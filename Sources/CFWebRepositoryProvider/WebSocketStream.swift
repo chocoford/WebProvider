@@ -69,7 +69,7 @@ public class WebSocketStream: NSObject, AsyncSequence {
     private var listenerTask: Task<Void, Never>? = nil
     
     /// indicate the web socket is open
-    private(set) var isSocketOpen: Bool = false {
+    private(set) public var isSocketOpen: Bool = false {
         didSet {
             if isSocketOpen {
                 self.listenerTask = Task {
@@ -120,7 +120,7 @@ public class WebSocketStream: NSObject, AsyncSequence {
         }
     }
     
-    func ping() {
+    public func ping() {
         self.logger.debug("send ping...")
         socket.sendPing { [weak self] error in
             if let error = error {
@@ -165,6 +165,7 @@ extension WebSocketStream {
         let data = try JSONEncoder().encode(data)
         
         guard isSocketOpen else {
+            logger.info("socket is not ready, push to queue: \(String(describing: data))")
             messageQueue.append(Message(message: .data(data)))
             return
         }
@@ -177,6 +178,7 @@ extension WebSocketStream {
             throw WebSocketStreamError.encodingError
         }
         guard isSocketOpen else {
+            logger.info("socket is not ready, push to queue: \(String(describing: message))")
             messageQueue.append(Message(message: .string(string)))
             return
         }
@@ -187,6 +189,7 @@ extension WebSocketStream {
     
     public func send(message: String) async throws {
         guard isSocketOpen else {
+            logger.info("socket is not ready, push to queue: \(message)")
             messageQueue.append(Message(message: .string(message)))
             return
         }

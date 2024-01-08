@@ -66,9 +66,11 @@ extension WebRepositoryProvider {
                     self.hooks.unauthorizeHandler()
                 }
                 
-                let error = APIError.httpCode(code,
-                                              reason: dataString,
-                                              headers: (response as? HTTPURLResponse)?.allHeaderFields)
+                let error = APIError.httpCode(
+                    code,
+                    reason: dataString,
+                    headers: (response as? HTTPURLResponse)?.allHeaderFields
+                )
                 throw error
             }
                         

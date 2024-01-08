@@ -12,7 +12,7 @@ import OSLog
 import Logging
 #endif
 
-protocol WebSocketProvider: AnyObject {
+public protocol WebSocketProvider: AnyObject {
     associatedtype ResponseMessage: Decodable
     
     var logger: Logger { get }
@@ -50,7 +50,7 @@ extension WebSocketProvider {
         try self.handleMessage(message)
     }
     
-    internal func initSocket() {
+    public func initSocket() {
         guard let url = self.socketURL else { return }
         self.streamTask?.cancel()
         self.streamTask = nil
