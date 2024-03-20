@@ -1,11 +1,11 @@
 import XCTest
-@testable import CFWebRepositoryProvider
+@testable import WebProvider
 
-final class CFWebRepositoryProviderTests: XCTestCase {
+final class WebProvider: XCTestCase {
     func testExample() throws {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
-//        XCTAssertEqual(CFWebRepositoryProvider().text, "Hello, World!")
+//        XCTAssertEqual(WebProvider().text, "Hello, World!")
     }
 }

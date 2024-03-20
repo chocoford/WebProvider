@@ -64,7 +64,7 @@ import Foundation
 //
 //    var token: String?
 //
-//    let logger: Logger = Logger(subsystem: "CFWebRepositoryProvider",
+//    let logger: Logger = Logger(subsystem: "WebProvider",
 //                                category: "AuthMiddleware")
 //
 //}

@@ -28,16 +28,49 @@ public enum LogOption {
     case error
 }
 
-public protocol WebRepositoryProvider {
-    var logLevel: [LogOption] { get set }
-    var logger: Logger { get }
-    var session: URLSession { get }
-    var baseURL: String { get }
-    var bgQueue: DispatchQueue { get }
-    var responseDataDecoder: JSONDecoder { get set }
+//public protocol WebRepositoryProvider {
+//    var logLevel: [LogOption] { get set }
+//    var logger: Logger { get }
+//    var session: URLSession { get }
+//    var baseURL: String { get }
+//    var bgQueue: DispatchQueue { get }
+//    var responseDataDecoder: JSONDecoder { get set }
+//    
+//    var hooks: WebRepositoryHook { get }
+//    
+//    associatedtype APICalls
+//    var requestsQueue: [String : APICalls] { get }
+//}
+
+public class WebRepositoryProvider {
+    var logLevel: [LogOption]
+    var logger: Logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "WebRepositoryProvider")
+    var baseURL: URL
+    var session: URLSession
+    var bgQueue: DispatchQueue = DispatchQueue(label: "web_repo_bg_queue")
     
-    var hooks: WebRepositoryHook { get }
+    var hooks: WebRepositoryHook = .init()
+    var responseDataDecoder: JSONDecoder
+    
+    private var requestsQueue: [String : [any APICall]] = [:]
+    private let ongoingCallsQueue = DispatchQueue(label: "WebRepository-ongoingCallsQueue", qos: .background)
+    private var ongoingCalls: [String : [Date]] = [:]
+    private var semaphores: [String : DispatchSemaphore] = [:]
+    private let semaphoreQueue = DispatchQueue(label: "WebRepository-semaphoreQueue", qos: .background)
+
+    public init(
+        logLevel: [LogOption] = [.error],
+        baseURL: URL,
+        session: URLSession = .shared,
+        responseDataDecoder: JSONDecoder
+    ) {
+        self.logLevel = logLevel
+        self.baseURL = baseURL
+        self.session = session
+        self.responseDataDecoder = responseDataDecoder
+    }
 }
+
 
 public struct WebRepositoryHook {
     public var unauthorizeHandler: () -> Void = { }
@@ -49,8 +82,24 @@ public struct WebRepositoryHook {
 }
 
 extension WebRepositoryProvider {
-    var logLevel: [LogOption] { [.error] }
-    public func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) async throws -> Value where Value: Decodable {
+//    var logLevel: [LogOption] { [.error] }
+    public func call<Value>(
+        endpoint: APICall,
+        httpCodes: HTTPCodes = .success
+    ) async throws -> Value where Value: Decodable {
+        while !(await canCall(endpoint)) {
+            try await Task.sleep(nanoseconds: UInt64(50 * 1e+6))
+        }
+        
+        await waitSemaphore(endpoint: endpoint) {
+            ongoingCallsQueue.sync {
+                if ongoingCalls[endpoint.path] == nil {
+                    ongoingCalls[endpoint.path] = []
+                }
+                ongoingCalls[endpoint.path]!.append(Date())
+            }
+        }
+        
         do {
             let request = try endpoint.urlRequest(baseURL: baseURL)
             if logLevel.contains(.request) { logger.info("\(request.prettyDescription)") }
@@ -68,15 +117,18 @@ extension WebRepositoryProvider {
                 
                 let error = APIError.httpCode(
                     code,
-                    reason: dataString,
-                    headers: (response as? HTTPURLResponse)?.allHeaderFields
+                    reason: dataString//,
+//                    headers: (response as? HTTPURLResponse)?.allHeaderFields
                 )
                 throw error
             }
                         
             if logLevel.contains(.data) {
                 if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: []),
-                   let data = try? JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys]) {
+                   let data = try? JSONSerialization.data(
+                    withJSONObject: jsonObject,
+                    options: [.prettyPrinted, .sortedKeys]
+                   ) {
                     logger.info("\(String(data: data, encoding: .utf8) ?? "")")
                 } else {
                     logger.info("\(String(data: data, encoding: .utf8) ?? "")")
@@ -100,6 +152,37 @@ extension WebRepositoryProvider {
             throw error
         }
     }
+    
+    private func waitSemaphore<T>(endpoint: APICall, action: () -> T) async -> T {
+        await withCheckedContinuation { continuation in
+            semaphoreQueue.sync(flags: .inheritQoS) {
+                if semaphores[endpoint.path] == nil {
+                    semaphores[endpoint.path] = DispatchSemaphore(value: 1)
+                }
+                let semaphore: DispatchSemaphore = semaphores[endpoint.path]!
+                semaphore.wait() // 确保线程安全
+                defer { semaphore.signal() }
+                continuation.resume()
+            }
+        }
+        return action()
+    }
+    
+    private func canCall(_ endpoint: APICall) async -> Bool {
+        guard let rateLimit = endpoint.rateLimit else { return true }
+        return await waitSemaphore(endpoint: endpoint) {
+            let now = Date()
+            ongoingCallsQueue.sync {
+                if ongoingCalls[endpoint.path] == nil {
+                    ongoingCalls[endpoint.path] = []
+                }
+                ongoingCalls[endpoint.path] = ongoingCalls[endpoint.path]!.filter {
+                    now.timeIntervalSince($0) < rateLimit.interval
+                }
+            }
+            return ongoingCalls[endpoint.path]!.count < rateLimit.times
+        }
+    }
 }
 
 //class SessionDelegate: NSObject, URLSessionTaskDelegate {
@@ -119,8 +202,8 @@ extension WebRepositoryProvider {
                 .dataTaskPublisher(for: request)
                 .requestJSON(httpCodes: httpCodes, decoder: responseDataDecoder, logger: logger, logLevel: logLevel)
                 .mapError { error in
-                    if logLevel.contains(.error) {
-                        logger.error("\(error)")
+                    if self.logLevel.contains(.error) {
+                        self.logger.error("\(error)")
                     }
                     return error
                 }
@@ -148,8 +231,8 @@ extension Publisher where Output == URLSession.DataTaskPublisher.Output {
             
             guard httpCodes.contains(code) else {
                 let error = APIError.httpCode(code,
-                                              reason: dataString,
-                                              headers: ($0.response as? HTTPURLResponse)?.allHeaderFields)
+                                              reason: dataString//,
+                                              /*headers: ($0.response as? HTTPURLResponse)?.allHeaderFields*/)
                 logger?.error("\(error.errorDescription ?? "")")
                 throw error
             }

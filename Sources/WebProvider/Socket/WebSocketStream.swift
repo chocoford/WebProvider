@@ -50,8 +50,6 @@ public class WebSocketStream: NSObject, AsyncSequence {
         guard let stream = stream else {
             fatalError("stream was not initialized")
         }
-        socket.resume()
-        listenForMessages()
         return stream.makeAsyncIterator()
     }
 #if canImport(OSLog)
@@ -63,6 +61,7 @@ public class WebSocketStream: NSObject, AsyncSequence {
     private var stream: AsyncThrowingStream<Element, Error>?
     private var continuation: AsyncThrowingStream<Element, Error>.Continuation?
     private let socket: URLSessionWebSocketTask
+    private let onStateChanged: (State) -> Void
     
     private var messageQueue: [Message] = []
     
@@ -72,17 +71,17 @@ public class WebSocketStream: NSObject, AsyncSequence {
     private(set) public var isSocketOpen: Bool = false {
         didSet {
             if isSocketOpen {
-                self.listenerTask = Task {
+                self.listenerTask = Task { [weak self] in
                     for message in messageQueue {
                         logger.debug("send queued message: \(message.message)")
                         do {
-                            try await socket.send(message.message)
+                            try await self?.socket.send(message.message)
                         } catch {
-                            self.messageQueue.retry(message)
+                            self?.messageQueue.retry(message)
                         }
                     }
                 }
-                Task { await self.listenerTask?.result }
+                Task { [weak self] in await self?.listenerTask?.result }
             } else {
                 self.listenerTask?.cancel()
                 self.listenerTask = nil
@@ -92,9 +91,7 @@ public class WebSocketStream: NSObject, AsyncSequence {
     /// indicate `WebSocketStream` to start clear waitlist.
     public var isSocketReady: Bool = false
         
-    var status: URLSessionTask.State {
-        socket.state
-    }
+    public var state: State = .notConnected
     
     public var closeCode: String {
         String(describing: socket.closeCode)
@@ -106,17 +103,38 @@ public class WebSocketStream: NSObject, AsyncSequence {
         return String(describing: json)
     }
     
-    init(url: URL, session: URLSession = URLSession.shared) {
-        logger.info("initing websocket: \(url.description)")
-        socket = session.webSocketTask(with: url)
+    public var onSocketClosed: (() -> Void)?
+    
+    init(
+        urlRequest: URLRequest,
+        session: URLSession = URLSession.shared,
+        onStateChanged: @escaping (State) -> Void = {_ in }
+    ) {
+        socket = session.webSocketTask(with: urlRequest)
+        self.onStateChanged = onStateChanged
         super.init()
         
         socket.delegate = self
-        stream = AsyncThrowingStream { continuation in
-            self.continuation = continuation
-            self.continuation?.onTermination = { @Sendable [socket] _ in
-                socket.cancel()
+        stream = AsyncThrowingStream { [weak self] continuation in
+            self?.continuation = continuation
+            self?.continuation?.onTermination = { @Sendable [weak socket] _ in
+                socket?.cancel()
             }
+        }
+        listenForMessages()
+    }
+    
+    deinit {
+        self.continuation?.finish()
+        socket.cancel()
+    }
+    
+    public func connect() {
+        logger.info("socket resume: \(self.socket)")
+        // MARK: - Bug: Memory leak
+        socket.resume()
+        if state != .connected {
+            state = .isConnecting
         }
     }
     
@@ -137,9 +155,12 @@ public class WebSocketStream: NSObject, AsyncSequence {
             switch result {
                 case .success(let message):
                     self.continuation?.yield(message)
-                    self.listenForMessages()
+                    if self.isSocketOpen {
+                        self.listenForMessages()
+                    }
                 case .failure(let error):
                     self.continuation?.finish(throwing: error)
+                    self.close()
             }
         }
     }
@@ -151,6 +172,7 @@ public class WebSocketStream: NSObject, AsyncSequence {
             await waitForMessages()
         } catch {
             continuation?.finish(throwing: error)
+            self.close()
         }
     }
 }
@@ -159,8 +181,32 @@ extension WebSocketStream {
     public enum WebSocketStreamError: LocalizedError {
         case encodingError
     }
+    
+    public enum State: CustomStringConvertible, Equatable {
+        /// Before the first connected
+        case notConnected
+        
+        case isConnecting
+        /// The WebSocket successfully negotiated the handshake with the endpoint
+        case connected
+        /// Closed
+        case closed(_ reason: String)
+        
+        public var description: String {
+            switch self {
+                case .notConnected:
+                    "Not connnected"
+                case .isConnecting:
+                    "Connecting..."
+                case .connected:
+                    "Connected"
+                case .closed(let reason):
+                    "Closed: \(reason)"
+            }
+        }
+    }
 
-    public func send(data: Codable) async throws {
+    public func send(data: Encodable) async throws {
         logger.info("send data: \(String(describing: data))")
         let data = try JSONEncoder().encode(data)
         
@@ -172,7 +218,7 @@ extension WebSocketStream {
         try await socket.send(.data(data))
     }
     
-    public func send(message: Codable, force: Bool = false) async throws {
+    public func send(message: Encodable, force: Bool = false) async throws {
         let data = try JSONEncoder().encode(message)
         guard let string = String(data: data, encoding: .utf8) else {
             throw WebSocketStreamError.encodingError
@@ -182,7 +228,7 @@ extension WebSocketStream {
             messageQueue.append(Message(message: .string(string)))
             return
         }
-        logger.info("send message: \(string)")
+        logger.info("send text message: \(string)")
         try await socket.send(.string(string))
         
     }
@@ -193,21 +239,38 @@ extension WebSocketStream {
             messageQueue.append(Message(message: .string(message)))
             return
         }
-        logger.info("send message: \(String(describing: message))")
+        logger.info("send text message: \(message)")
         try await socket.send(.string(message))
 
     }
     
+    public func close() {
+        self.socket.cancel(with: .normalClosure, reason: nil)
+    }
 }
 
 extension WebSocketStream: URLSessionWebSocketDelegate {
-    public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
-        print("Web socket opened")
+    /// Tells the delegate that the WebSocket task successfully negotiated the handshake with the endpoint, indicating the negotiated protocol.
+    public func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didOpenWithProtocol protocol: String?
+    ) {
+        print("Socket opened: \(session)")
         isSocketOpen = true
+        self.state = .connected
+        self.onStateChanged(self.state)
     }
     
-    public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+    public func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
+        reason: Data?
+    ) {
         print("Web socket closed, reason: \(self.closeReason)")
         isSocketOpen = false
+        self.state = .closed(self.closeReason)
+        self.onStateChanged(self.state)
     }
 }

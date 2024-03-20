@@ -1,6 +1,6 @@
 //
 //  APICall.swift
-//  CFWebRepositoryProvider
+//  WebProvider
 //
 //  Created by Alexey Naumov on 23.10.2019.
 //
@@ -18,6 +18,17 @@ public enum APIMethod: String {
     case patch = "PATCH"
 }
 
+
+public struct APICallRateLimit {
+    public var times: Int
+    public var interval: TimeInterval
+    
+    public init(times: Int, interval: TimeInterval) {
+        self.times = times
+        self.interval = interval
+    }
+}
+
 public protocol APICall {
     var path: String { get }
     var method: APIMethod { get }
@@ -25,12 +36,14 @@ public protocol APICall {
     var gloabalQueryItems: Encodable? { get }
     var queryItems: Encodable? { get }
     func body() throws -> Data?
+
+    var rateLimit: APICallRateLimit? { get }
 }
 
 
 enum APIError {
     case invalidURL
-    case httpCode(HTTPCode, reason: String, headers: [AnyHashable: Any]?)
+    case httpCode(HTTPCode, reason: String/*, headers: [AnyHashable: Any]?*/)
     case unexpectedResponse
     case imageDeserialization
     case parameterInvalid
@@ -40,8 +53,8 @@ extension APIError: LocalizedError {
     var errorDescription: String? {
         switch self {
             case .invalidURL: return "Invalid URL"
-            case let .httpCode(code, reason, headers):
-                return "HTTP code error: \(code)"
+            case let .httpCode(code, reason/*, headers*/):
+                return "HTTP code error: \(code), reason: \(reason)"
             case .unexpectedResponse: return "Unexpected response from the server"
             case .imageDeserialization: return "Cannot deserialize image from Data"
             case .parameterInvalid: return "Parameter invalid"
@@ -50,7 +63,7 @@ extension APIError: LocalizedError {
     
     var failureReason: String? {
         switch self {
-            case let .httpCode(code, reason, headers): 
+            case let .httpCode(_, reason/*, headers*/): 
                 return reason
             default:
                 return nil
@@ -68,6 +81,28 @@ extension APICall {
         return encoder
     }
     
+    func urlRequest(baseURL: URL) throws -> URLRequest {
+        let url: URL
+        
+        if #available(iOS 16.0, macOS 13.0, macCatalyst 16.0, tvOS 16.0, watchOS 9.0, visionOS 1.0, *) {
+            url = baseURL.appending(path: path)
+        } else {
+            url = baseURL.appendingPathComponent(path)
+        }
+        
+        guard var urlBuilder = URLComponents(
+            url: url,
+            resolvingAgainstBaseURL: false
+        ) else { throw APIError.invalidURL }
+        
+        try self.configureQueryItems(urlBuilder: &urlBuilder)
+        
+        guard let url = urlBuilder.url else {
+            throw APIError.invalidURL
+        }
+        return try urlRequest(url: url)
+    }
+    
     func urlRequest(baseURL: String) throws -> URLRequest {
         guard var urlBuilder = URLComponents(string: baseURL + path) else { throw APIError.invalidURL }
         try self.configureQueryItems(urlBuilder: &urlBuilder)
@@ -75,6 +110,10 @@ extension APICall {
         guard let url = urlBuilder.url else {
             throw APIError.invalidURL
         }
+        return try urlRequest(url: url)
+    }
+    
+    func urlRequest(url: URL) throws -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.allHTTPHeaderFields = headers
