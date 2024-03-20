@@ -42,7 +42,7 @@ public enum LogOption {
 //    var requestsQueue: [String : APICalls] { get }
 //}
 
-public class WebRepositoryProvider {
+public class WebRepository {
     var logLevel: [LogOption]
     var logger: Logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "WebRepositoryProvider")
     var baseURL: URL
@@ -81,7 +81,7 @@ public struct WebRepositoryHook {
     }
 }
 
-extension WebRepositoryProvider {
+extension WebRepository {
 //    var logLevel: [LogOption] { [.error] }
     public func call<Value>(
         endpoint: APICall,
@@ -193,7 +193,7 @@ extension WebRepositoryProvider {
 
 #if !os(Linux)
 // MARK: - Combine support
-extension WebRepositoryProvider {
+extension WebRepository {
     public func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) -> AnyPublisher<Value, Error> where Value: Decodable {
         do {
             let request = try endpoint.urlRequest(baseURL: baseURL)

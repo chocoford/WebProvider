@@ -16,7 +16,6 @@ struct SocketConnectError: LocalizedError {
     var errorDescription: String?
 }
 
-
 /// WebSocketProvider
 public protocol WebSocketProvider {
     associatedtype ResponseMessage: Decodable
@@ -26,29 +25,6 @@ public protocol WebSocketProvider {
     var responseMessageDecoder: JSONDecoder { get }
     func handleMessage(_ message: ResponseMessage) throws
 }
-
-public struct SimpleWebSocketProvider: WebSocketProvider {
-    public var urlRequest: URLRequest
-    
-    public var session: URLSession = .shared
-    
-    public var responseMessageDecoder: JSONDecoder = JSONDecoder()
-    
-    public func handleMessage(_ message: String) throws {
-        
-    }
-    
-    init(urlRequest: URLRequest, session: URLSession, responseMessageDecoder: JSONDecoder) {
-        self.urlRequest = urlRequest
-        self.session = session
-        self.responseMessageDecoder = responseMessageDecoder
-    }
-    
-    init(url: URL) {
-        self.urlRequest = URLRequest(url: url)
-    }
-}
-
 
 extension WebSocketProvider {
     internal func handleMessage(data: Data) throws {
@@ -78,3 +54,24 @@ extension WebSocketProvider {
 
 }
 
+public struct SimpleWebSocketProvider: WebSocketProvider {
+    public var urlRequest: URLRequest
+    
+    public var session: URLSession = .shared
+    
+    public var responseMessageDecoder: JSONDecoder = JSONDecoder()
+    
+    public func handleMessage(_ message: String) throws {
+        
+    }
+    
+    init(urlRequest: URLRequest, session: URLSession, responseMessageDecoder: JSONDecoder) {
+        self.urlRequest = urlRequest
+        self.session = session
+        self.responseMessageDecoder = responseMessageDecoder
+    }
+    
+    init(url: URL) {
+        self.urlRequest = URLRequest(url: url)
+    }
+}

@@ -1,5 +1,5 @@
 //
-//  WebSocketClient.swift
+//  WebSocketRepository.swift
 //
 //
 //  Created by Dove Zachary on 2024/3/20.
@@ -12,7 +12,7 @@ import OSLog
 import Logging
 #endif
 
-public class WebSocketClient<Provider: WebSocketProvider> {
+public class WebSocketRepository<Provider: WebSocketProvider> {
     var logger: Logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "WebProvider",
         category: "WebSocketProvider"
@@ -82,7 +82,7 @@ public class WebSocketClient<Provider: WebSocketProvider> {
     public var onDataMessage: ((Data) -> Void)?
 }
 
-extension WebSocketClient {
+extension WebSocketRepository {
     /// connect, the function will return if connect action done. Success or Fail.
     public func connect(_ autoReconnect: Bool = true) {
         self.stream?.connect()
@@ -179,9 +179,9 @@ extension WebSocketClient {
 }
 
 
-extension WebSocketClient {
+extension WebSocketRepository {
     public static func connectAny(onSuccess: (() -> Void)? = nil) where Provider == SimpleWebSocketProvider {
-        let provider = WebSocketClient(url: URL(string: "https://echo.websocket.org/")!)
+        let provider = WebSocketRepository(url: URL(string: "https://echo.websocket.org/")!)
         provider.initSocketStream()
         provider.connect()
         provider.onConnected = onSuccess
