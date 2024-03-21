@@ -65,13 +65,28 @@ public struct SimpleWebSocketProvider: WebSocketProvider {
         
     }
     
-    init(urlRequest: URLRequest, session: URLSession, responseMessageDecoder: JSONDecoder) {
+    public var messageHandler: (String) -> Void
+    
+    init(
+        urlRequest: URLRequest,
+        session: URLSession,
+        responseMessageDecoder: JSONDecoder,
+        messageHandler: @escaping (String) -> Void = { _ in
+        }
+    ) {
         self.urlRequest = urlRequest
         self.session = session
         self.responseMessageDecoder = responseMessageDecoder
+        self.messageHandler = messageHandler
     }
     
-    init(url: URL) {
+    init(
+        url: URL,
+        messageHandler: @escaping (String) -> Void = { _ in
+            
+        }
+    ) {
         self.urlRequest = URLRequest(url: url)
+        self.messageHandler = messageHandler
     }
 }
