@@ -42,7 +42,7 @@ public class WebSocketRepository<Provider: WebSocketProvider> {
         }
     }
     
-    var pingInterval: TimeInterval? {
+    public var pingInterval: TimeInterval? {
         didSet {
             self.setPingTimer()
         }
@@ -53,11 +53,11 @@ public class WebSocketRepository<Provider: WebSocketProvider> {
     private var provider: Provider
     private var streamTask: Task<Void, Never>?
     
-    public init(url: URL) where Provider == SimpleWebSocketProvider {
+    public init(url: URL, pingInterval: TimeInterval? = nil) where Provider == SimpleWebSocketProvider {
         self.provider = SimpleWebSocketProvider(url: url)
     }
     
-    public init(provider: Provider) {
+    public init(provider: Provider, pingInterval: TimeInterval? = nil) {
         self.provider = provider
     }
     
