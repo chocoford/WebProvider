@@ -50,7 +50,7 @@ public class WebSocketRepository<Provider: WebSocketProvider> {
     
     
     private var pingTimer: Timer?
-    private var provider: Provider
+    public var provider: Provider
     private var streamTask: Task<Void, Never>?
     
     public init(url: URL, pingInterval: TimeInterval? = nil) where Provider == SimpleWebSocketProvider {
