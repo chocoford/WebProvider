@@ -40,6 +40,52 @@ public protocol APICall {
     var rateLimit: APICallRateLimit? { get }
 }
 
+extension APICall {
+    func instantiate() -> APICallInstance {
+        APICallInstance(
+            path: self.path,
+            method: self.method,
+            headers: self.headers,
+            gloabalQueryItems: self.gloabalQueryItems,
+            queryItems: self.queryItems,
+            bodyFactory: {
+                try self.body()
+            },
+            rateLimit: self.rateLimit
+        )
+    }
+}
+
+public struct APICallInstance: APICall {
+    public var path: String
+    public var method: APIMethod
+    public var headers: [String : String]?
+    public var gloabalQueryItems: (any Encodable)?
+    public var queryItems: (any Encodable)?
+    public var bodyFactory: () throws -> Data?
+    public func body() throws -> Data? {
+        try bodyFactory()
+    }
+    public var rateLimit: APICallRateLimit?
+    init(
+        path: String,
+        method: APIMethod,
+        headers: [String : String]? = nil,
+        gloabalQueryItems: (any Encodable)? = nil,
+        queryItems: (any Encodable)? = nil,
+        bodyFactory: @escaping () throws -> Data?,
+        rateLimit: APICallRateLimit? = nil
+    ) {
+        self.path = path
+        self.method = method
+        self.headers = headers
+        self.gloabalQueryItems = gloabalQueryItems
+        self.queryItems = queryItems
+        self.rateLimit = rateLimit
+        self.bodyFactory = bodyFactory
+    }
+}
+
 
 enum APIError {
     case invalidURL

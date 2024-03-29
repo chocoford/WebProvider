@@ -73,7 +73,7 @@ public class WebRepository {
 
 
 public struct WebRepositoryHook {
-    public var beforeEach: (any APICall) -> any APICall = { return $0 }
+    public var beforeEach: (APICallInstance) -> APICallInstance = { return $0 }
 //    var afterEach: () -> Void
     
     public var unauthorizeHandler: () -> Void = { }
@@ -88,7 +88,7 @@ extension WebRepository {
         endpoint: APICall,
         httpCodes: HTTPCodes = .success
     ) async throws -> Value where Value: Decodable {
-        let endpoint = self.hooks.beforeEach(endpoint)
+        let endpoint = self.hooks.beforeEach(endpoint.instantiate())
         
         while !(await canCall(endpoint)) {
             try await Task.sleep(nanoseconds: UInt64(50 * 1e+6))
