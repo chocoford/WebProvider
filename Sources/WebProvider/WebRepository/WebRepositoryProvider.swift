@@ -49,7 +49,7 @@ public class WebRepository {
     var session: URLSession
     var bgQueue: DispatchQueue = DispatchQueue(label: "web_repo_bg_queue")
     
-    var hooks: WebRepositoryHook = .init()
+    public var hooks: WebRepositoryHook = .init()
     var responseDataDecoder: JSONDecoder
     
     private var requestsQueue: [String : [any APICall]] = [:]
@@ -73,9 +73,10 @@ public class WebRepository {
 
 
 public struct WebRepositoryHook {
-    public var unauthorizeHandler: () -> Void = { }
-//    var beforeEach: () -> Void
+    public var beforeEach: (any APICall) -> any APICall = { return $0 }
 //    var afterEach: () -> Void
+    
+    public var unauthorizeHandler: () -> Void = { }
     public init(unauthorizeHandler: @escaping () -> Void = { }) {
         self.unauthorizeHandler = unauthorizeHandler
     }
@@ -87,6 +88,8 @@ extension WebRepository {
         endpoint: APICall,
         httpCodes: HTTPCodes = .success
     ) async throws -> Value where Value: Decodable {
+        let endpoint = self.hooks.beforeEach(endpoint)
+        
         while !(await canCall(endpoint)) {
             try await Task.sleep(nanoseconds: UInt64(50 * 1e+6))
         }
