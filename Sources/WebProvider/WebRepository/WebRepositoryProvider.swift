@@ -43,7 +43,7 @@ public enum LogOption {
 //}
 
 open class WebRepository {
-    var logLevel: [LogOption]
+    public var logLevel: [LogOption]
     var logger: Logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "WebRepositoryProvider")
     var baseURL: URL
     var session: URLSession
