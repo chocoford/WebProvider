@@ -42,7 +42,7 @@ public enum LogOption {
 //    var requestsQueue: [String : APICalls] { get }
 //}
 
-public class WebRepository {
+open class WebRepository {
     var logLevel: [LogOption]
     var logger: Logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "WebRepositoryProvider")
     var baseURL: URL
